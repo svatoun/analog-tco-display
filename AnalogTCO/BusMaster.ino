@@ -36,7 +36,7 @@ const boolean printErrors = true;
 /**
  * Doba cekani na ACK. Pote je packet povazovany za nedoruceny, a bude se opakovat.
  */
-const int ackTimeout = 30;
+const int ackTimeout = 50;
 
 /**
  * Max pocet opakovani. Po dosazeni se packet VYRADI.
@@ -59,7 +59,7 @@ const int maxSlaves8 = (maxSlaves + 7) / 8;
  * Doba po kterou se smi nepretrzite vysilat. Po uplynuti se vysilani prerusi,
  * aby mohlo Arduino delat i jine veci.
  */
-const int maxTransmitTime = 10;
+const int maxTransmitTime = 30;
 
 /**
  * Minimum delay from the last "normal" transmission
@@ -206,12 +206,15 @@ void masterStartReceiver() {
   if (!isReceiving()) {
     startReceiver();  
   }
+  recordStartTime(startReceiverTime);
+  Serial.print("Master receiving: "); Serial.println(startReceiverTime);
 }
 
 void masterStopReceiver() {
   masterReceiving = false;
   recvError = 0;
   stopReceiver();
+  startReceiverTime = 0;
 }
 
 void transmitFrames() {
@@ -219,7 +222,7 @@ void transmitFrames() {
   if (isReceiving()) {
     if (startReceiverTime > 0 && elapsedTime(startReceiverTime, ackTimeout)) {
       if (debugBusMaster) {
-        Serial.println(F("Timeout @start"));
+        Serial.print(F("Timeout @start "));  Serial.println(currentMillisLow);
       }
       boolean r = masterReceiving;
       masterStopReceiver();
@@ -254,7 +257,6 @@ void transmitFrames() {
       }
       printBufStat();
       // switch to listening
-      recordStartTime(startReceiverTime);
       masterStartReceiver();
       return;
     }

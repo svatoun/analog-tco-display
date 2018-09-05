@@ -10,8 +10,10 @@ struct EEData {
   byte      outputsToFlashOn[outputByteSize];
   byte      busId;
   boolean   flashDefault;
+  int       minTrackVoltage;
+  int       minTrackPercent;
 
-  EEData() : flashDefault(false), busId(1) {}
+  EEData() : flashDefault(false), busId(1), minTrackVoltage(40), minTrackPercent(20) {}
 };
 
 extern EEData eeData;

@@ -22,14 +22,17 @@ inline byte writeNibble(byte* a, byte index, byte val) {
 }
 
 
-Debouncer::Debouncer(byte aCount, byte* aState) : stateBytes(aCount), stableState(aState) {
-  byte s = aCount * 2 + ((aCount + 1) >> 1);
+Debouncer::Debouncer(byte aCount, byte* aState) : stateBytes(aCount), stableState(aState), onCounter(4), offCounter(4) {
+  byte s = aCount * 2 + (aCount * 4);
   changes = new byte[s];
   rawState = changes + aCount;
   counterNibbles = rawState + aCount;
 
-  for (byte c = s, *p = changes; c > 0; p++, c++) {
+  for (byte c = s, *p = changes; c > 0; p++, c--) {
     *p = 0;
+  }
+  for (byte *nb = counterNibbles; nb < (counterNibbles + ((aCount + 1) / 2)); nb++) {
+    *nb = 0;
   }
 }
 
@@ -86,7 +89,7 @@ void Debouncer::reportByteChange(byte n8, byte nstate, byte mask) {
 
 void Debouncer::reportChange(byte n, boolean state) {
   if (debugDebouncer) {
-    Serial.print(F("s88Change: n:")); Serial.print(n); Serial.print(F(" s:")); Serial.println(state);
+    Serial.print(F("s88Change: n:")); Serial.print(n); Serial.print(" c:"); Serial.print(state ? onCounter : offCounter); Serial.print(F(" s:")); Serial.println(state);
   }
   writeNibble(curNibble, n, state ? onCounter : offCounter);
 }
@@ -102,6 +105,7 @@ void Debouncer::tick() {
       Serial.print(F("tick: n8: ")); Serial.print(i); Serial.print(F(" m:")); Serial.println(m, BIN);
     }
     if (m == 0) {
+      cn += 4;
       continue;
     }
     byte n = i * 8;
@@ -109,17 +113,17 @@ void Debouncer::tick() {
     byte mask = 0x01;
     curNibble = cn;
     while (mask != 0 && mask <= m) {
-      byte c = readNibble(curNibble, n);
+      byte c = readNibble(counterNibbles + (n / 2), n);
       if (debugDebouncer) {
-        Serial.print(F("tick: n:")); Serial.print(n); Serial.print(F(" c:")); Serial.println(c);
+        Serial.print(F("tick: n:")); Serial.print(n); Serial.print(F(" nib:")); Serial.print(i * 4); Serial.print(F(" c:")); Serial.println(c);
       }
       if (c > 0) {
         if (--c == 0) {
           stableChange(n, rs & 0x01);
         } else {
           m &= ~mask;
-          writeNibble(curNibble, n, c); 
         }
+        writeNibble(curNibble, n, c); 
       }
       mask = mask << 1;
       rs >>= 1;
@@ -137,6 +141,8 @@ void Debouncer::tick() {
     }
     *pstable = (*pstable & ~m) | (rawState[i] & m);
   }
+
+  print();
 }
 
 void Debouncer::stableChange(byte input, boolean state) {
@@ -175,6 +181,10 @@ void Debouncer::print() {
   Serial.println(F("Nibbles:"));
   byte* nc = counterNibbles;
   int writeCount = 0;
+  for (int i = 0; i < stateBytes * 4; i++) {
+    Serial.print(counterNibbles[i], HEX); Serial.print('-');
+  }
+  Serial.println();
   for (int i = 0; i < stateBytes * 8; i++) {
     byte cnt = readNibble(nc, i);
     if (i & 0x01) {

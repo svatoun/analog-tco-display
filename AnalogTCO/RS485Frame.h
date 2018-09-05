@@ -11,12 +11,12 @@
 /**
  * Kolik ms po zacatku prijmu muze prijit start byte. 
  */
-const int recvDelayStartByte = 10;
+const int recvDelayStartByte = 50;
 
 /**
  * Kolik ms smi uplynout mezi jednotlivymi byte packetu.
  */
-const int recvDelayBetweenPacketBytes = 5;
+const int recvDelayBetweenPacketBytes = 10;
 
 typedef uint8_t address_t;
 typedef uint8_t len_t;
@@ -45,6 +45,9 @@ struct CommFrame {
    *  Prvni byte vlastnich prenasenych dat. Dalsi bezprostredne nasleduji, v bufferu musi byt prideleno dost mista pro celou zpravu.
    */
   byte  dataStart;
+
+  CommFrame() : from(0), to(0), len(1), retryCount(0) {}
+  CommFrame(address_t af, address_t at, byte l) : from(af), to(at), len(l), retryCount(0) {}
 
   const byte* data() const {
     return &dataStart;
@@ -118,6 +121,7 @@ boolean verifyChecksum(checksum_t expected, checksum_t got) {
 }
 #endif
 
+extern checksum_t recvChecksum;
 const int checksumSize = sizeof(checksum_t);
 
 enum ReceiveError {

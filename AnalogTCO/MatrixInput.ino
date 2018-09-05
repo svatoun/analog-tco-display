@@ -19,6 +19,8 @@ class KeyDebouncer : public Debouncer {
 KeyDebouncer::KeyDebouncer(byte modCount, byte* debouncedState) : Debouncer(modCount, debouncedState) {
 }
 
+KeyDebouncer inputKeyDebouncer(sizeof(inputDebounced), inputDebounced);
+
 unsigned int inputRowValue;
 unsigned int inputRowMask;
 
@@ -39,8 +41,10 @@ void resetInput() {
     inputDebounced[i] = 0;
   }
   memset(keyTranslations, 0, sizeof(keyTranslations));
+  // zadefinujeme pocatecni nastaveni - vsechna tlacitka se posilaji na
+  // jedno zarizeni.
   KeySpec &sp = keyTranslations[0];
-  sp.rectangle(0, 0, 8, 16, 2, 0);
+  sp.rectangle(0, 0, 7, 15, 2, 0);
 }
 
 uint8_t analogShiftIn(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder) {
@@ -58,11 +62,24 @@ uint8_t analogShiftIn(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder) {
   return value;
 }
 
+unsigned int lastDebounceTick = 0;
+
 void processInputRow() {
-  byte input1 = TcInputData > 13 ? analogShiftIn(TcInputData, TcInputClock, HIGH) : shiftIn(TcInputData, TcInputClock, HIGH);
+  digitalWrite(TcInputClock, LOW);
+  digitalWrite(TcInputLatch, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TcInputClock, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TcInputLatch, LOW);
+  byte input1 = TcInputData > 13 ? analogShiftIn(TcInputData, TcInputClock, LOW) : shiftIn(TcInputData, TcInputClock, LOW);
+  input1 = ~input1;
+  inputKeyDebouncer.debounce(ioRowIndex, &input1, 1);
+  if (elapsedTime(lastDebounceTick, keyboardDebounceTime)) {
+    inputKeyDebouncer.tick();
+  }
 }
 
-byte findKeyTranslation(byte nx, byte ny, int& target) {
+int findKeyTranslation(byte nx, byte ny, int& target) {
   for (const KeySpec* spec = keyTranslations; !spec->isEmpty(); spec++) {
     if (spec->matrix) {
       if ((spec->x > nx) || (spec->y > ny)) {
@@ -78,7 +95,7 @@ byte findKeyTranslation(byte nx, byte ny, int& target) {
     byte fy = h + spec->y + 1;
 
     byte r = (ny - spec->y) * fx;
-    r += (nx = spec->x);
+    r += (nx - spec->x);
     target = spec->target;
     return r + spec->commandBase;
   }
@@ -89,6 +106,10 @@ void KeyDebouncer::stableChange(byte number, boolean nState) {
   Debouncer::stableChange(number, nState);
   byte ny = number / inputColumnsRounded;
   byte nx = number - (ny * inputColumnsRounded);
+
+  if (debugKeyInput) {
+    Serial.print("Stable change: "); Serial.print(inputColumnsRounded); Serial.print(';'); Serial.print(number); Serial.print('='); Serial.println(nState);
+  }
 
   pressKey(nx, ny, nState);
 }

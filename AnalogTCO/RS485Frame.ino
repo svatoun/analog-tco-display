@@ -33,8 +33,7 @@
  */
 
 const boolean debug485Frame = true;
-
-const boolean test485 = true;
+const boolean debug485Recv = false;
 
 #include "RS485Frame.h"
 
@@ -98,7 +97,7 @@ const byte *xmitPtr = NULL;
 
 void setupRS485Ports() {
   pinMode(rs485Receive, INPUT);
-  pinMode(rs485Direction, INPUT);
+  pinMode(rs485Direction, OUTPUT);
   pinMode(rs485Send, OUTPUT);
 
   commSerial.attachInterrupt(&isrReceiveData);
@@ -158,6 +157,8 @@ void xmitOneByte(byte b) {
 void stopTransmitter() {
   xmitPtr = NULL;
   xmitPhase = idle;
+  delayMicroseconds(5);
+  Serial.println("Stop transmitter");
   digitalWrite(rs485Direction, LOW);
 }
 
@@ -181,10 +182,10 @@ byte transmitSingle(boolean enableImmediateRead) {
       if (debug485Frame) {
         Serial.println(F("Checksum out"));
       }
+      xmitOneByte(xmitXor);
       if (enableImmediateRead) {
         startReceiver();
       }
-      xmitOneByte(xmitXor);
       break;
   }
   if (xmitCounter == 0) {
@@ -251,9 +252,10 @@ void initReceiver() {
 }
 
 void startReceiver() {
-  if (debug485Frame) {
+  if (debug485Recv) {
     Serial.println(F("Start receiver"));
   }
+  delayMicroseconds(50);
   digitalWrite(rs485Direction, LOW);
   recvPhase = startByte;
   recvPtr = &recvFrame.len;
@@ -288,7 +290,7 @@ void periodicReceiveCheck() {
     if (recvPhase == startByte) {
       if (d > recvDelayStartByte) {
         if (debug485Frame) {
-          Serial.println(F("Start byte timeout"));
+          Serial.print(F("Start byte timeout")); Serial.println(d);
         }
         stopReceiver();
         onReceiveError(errTimeoutStart);
@@ -311,7 +313,7 @@ void periodicReceiveCheck() {
 void isrReceiveData(uint8_t data) {
   byte ph = recvPhase;
   
-  lastReceiveMillis = currentMillis;
+  lastReceiveMillis = millis();
   if ((ph == idle) || (ph == startByte)) {
     // in case of data incoming during idle, switch to startByte = active reading.
     // will skip unexpected packet on the wire.
@@ -324,18 +326,18 @@ void isrReceiveData(uint8_t data) {
       return;
     }
     initPayload();
-    if (debug485Frame) {
+    if (debug485Recv) {
       Serial.println(F("Got start"));
     }
     return;
   }
   
   checksumUpdate(recvXor, data);
-  if (debug485Frame) {
+  if (debug485Recv) {
     Serial.print(F("Data: ")); Serial.print(data, HEX); Serial.print(F(" chksum:")); Serial.println(recvXor, HEX);
   }
   if (data == escapeChar) {
-    if (debug485Frame) {
+    if (debug485Recv) {
       Serial.println(F("Got escape"));
     }
     recvPhase2 = ph;
@@ -350,7 +352,7 @@ void isrReceiveData(uint8_t data) {
   }
   if (ph == escape) {
     data = data ^ escapeChar;
-    if (debug485Frame) {
+    if (debug485Recv) {
       Serial.print(F("Escaped data: ")); Serial.println(data, HEX);
     }
     recvPhase = ph = recvPhase2;

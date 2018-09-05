@@ -3,8 +3,8 @@ extern unsigned int currentMillisLow;
 extern byte ioRowIndex;
 extern byte ioColumnIndex;
 
-const byte inputRowSize = (inputColumns + 7 / 8);
-const byte inputColumnsRounded = (inputColumns + 7 / 8) * 8;
+const byte inputRowSize = ((inputColumns + 7) / 8);
+const byte inputColumnsRounded = ((inputColumns + 7) / 8) * 8;
 const byte inputByteSize = (inputRows * inputColumns + 7) / 8;
 
 const byte addressBroadcast = 0xff;
@@ -14,8 +14,14 @@ const byte addressBroadcast = 0xff;
  * Write all 4 address lines at once
  */
 inline void selectDemuxLine(byte line) {
+  byte rev = 0;
+  // because of design error, address lines are reversed compared to bit order
+  if (line & 0x01) rev |= 8;
+  if (line & 0x02) rev |= 4;
+  if (line & 0x04) rev |= 2;
+  if (line & 0x08) rev |= 1;
   byte pb = PORTB & 0xf0;
-  pb |= (line & 0x0f);
+  pb |= (rev & 0x0f);
   PORTB = pb;
 }
 #else
@@ -72,7 +78,7 @@ struct KeySpec {
   byte  x : 4;
   byte  y : 4;     
   boolean matrix : 1 ;      // 1
-  byte  lenOrMatrix : 6;    // 8
+  byte  lenOrMatrix : 8;    // 8
   byte  commandBase : 6;    
   byte  target : 5;         // 5 ... 2 bit remain
 
@@ -92,13 +98,16 @@ struct KeySpec {
   void rectangle(byte ax, byte ay, byte w, byte h, byte t, byte b) {
     x = ax; y = ay;
     matrix = 1;
-    lenOrMatrix = (w - 1 + ax) | ((h - 1 + ay) << 4);
+    lenOrMatrix = w | (h << 4);
     target = t;
     commandBase = b;
+    Serial.print("Rectangle: "); Serial.println(lenOrMatrix, HEX);
   }
 
   void printDef();
 };
+
+static_assert(sizeof(KeySpec) > 3, "Large keyspec");
 
 
 byte analogTTLRead(byte pin) {

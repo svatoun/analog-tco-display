@@ -44,6 +44,8 @@ struct S88Phase {
   S88Phase(byte (*aHandler)(), unsigned int aDel) : handler(aHandler), delay(aDel) /*, id(none)*/ {}
 };
 
+byte mux;
+
 /**
  * Definition of the S88 automaton. The machine will wrap back to state 0 after the end of the array.
  */
@@ -73,6 +75,45 @@ const S88Phase  automatonStates[] = {
   S88Phase(&s88Finish, 5000)   // wait ~5k usec = 5msec.
 };
 
+void setupTrackInput() {
+  // --------------- Shamelessly copied from http://yaab-arduino.blogspot.cz/2015/02/fast-sampling-from-analog-input.html
+  // clear ADLAR in ADMUX (0x7C) to right-adjust the result
+  // ADCL will contain lower 8 bits, ADCH upper 2 (in last two bits)
+  ADMUX &= B11011111;
+  
+  // Set REFS1..0 in ADMUX (0x7C) to change reference voltage to the
+  // proper source (01)
+  ADMUX |= B01000000;
+  
+  // Clear MUX3..0 in ADMUX (0x7C) in preparation for setting the analog
+  // input
+  ADMUX &= B11110000;
+  
+  // Set ADEN in ADCSRA (0x7A) to enable the ADC.
+  // Note, this instruction takes 12 ADC clocks to execute
+  ADCSRA |= B10000000;
+  
+  // Set ADATE in ADCSRA (0x7A) to enable auto-triggering.
+  ADCSRA |= B00100000;
+  
+  // Clear ADTS2..0 in ADCSRB (0x7B) to set trigger mode to free running.
+  // This means that as soon as an ADC has finished, the next will be
+  // immediately started.
+  ADCSRB &= B11111000;
+  
+  // Set ADIE in ADCSRA (0x7A) to enable the ADC interrupt.
+  // Without this, the internal interrupt will not trigger.
+  ADCSRA |= B00001000;
+  
+  // Enable global interrupts
+  // AVR macro included in <avr/interrupts.h>, which the Arduino IDE
+  // supplies by default.
+
+  // save the ADMUX value, will be combined with desired analog input later.
+  mux = ADMUX;
+
+  startAnalogRead(S88TrackInput);
+}
 
 void setupS88Ports() {
   pinMode(S88Input, INPUT);
@@ -80,6 +121,12 @@ void setupS88Ports() {
   pinMode(S88Latch, OUTPUT);
   pinMode(S88ResetAll, OUTPUT);
   pinMode(S88ResetTrack, OUTPUT);
+
+  pinMode(S88TrackInput, INPUT);
+
+//  setupTrackInput();
+
+  registerLineCommand("SENS", &commandTrackSensitivity);
 }
 
 void resetS88() {
@@ -223,6 +270,71 @@ boolean processS88Bus() {
   return s88CurrentState == 0;
 }
 
+volatile int intCount = 0;
+volatile int trackAboveLimit = 0;
+
+void resetIntCounters() {
+  noInterrupts();
+  intCount = 0;
+  trackAboveLimit = 0;  
+  interrupts();
+}
+
+void startAnalogRead(int channel) {
+  noInterrupts();
+  ADMUX = (mux & ~0x07) | channel;
+  ADCSRA |= (1 << ADSC);  // start ADC measurements 
+  interrupts();
+  resetIntCounters();
+}
+
+// Interrupt po zpracovani ADC vstupu
+ISR(ADC_vect)
+{
+  int readLo = ADCL; // ADCL must be read first; reading ADCH will trigger next coversion.
+  int readHi = ADCH; 
+  int v = (readHi << 8) | readLo;
+
+  intCount++;
+  if (v >= eeData.minTrackVoltage) {
+    trackAboveLimit++;
+  }
+  interrupts();
+}
+
+boolean checkTrackPowered() {
+  int total = intCount;
+  int okCount = trackAboveLimit;
+
+  int percent = (okCount * (long)100) / total;
+  resetIntCounters();
+  return percent >= eeData.minTrackPercent;
+}
+
+void dumpTrackSensitivity() {
+  Serial.print(F("SENS:")); Serial.print(eeData.minTrackVoltage); Serial.print(':'); Serial.println(eeData.minTrackPercent);
+}
+
+void commandTrackSensitivity() {
+  int limit = nextNumber();
+  if (limit == -2) {
+    dumpTrackSensitivity();
+    return;
+  }
+  int percent = nextNumber();
+
+  if ((limit < 10) || (limit >= 800)) {
+    Serial.println(F("Bad limit"));
+    return;
+  }
+  if ((percent < 0) || (percent > 100)) {
+    Serial.println(F("Bad percentage"));
+    return;
+  }
+  eeData.minTrackPercent = percent;
+  eeData.minTrackVoltage = limit;
+}
+
 // ------------------------ Indivudual port manipulations ---------------
 
 byte s88LoadHigh() {
@@ -258,10 +370,14 @@ byte s88ClockLow() {
 }
 
 byte s88ResetHigh() {
-  if (debugS88Pins) {
-    Serial.println(F("S88: Reset -> HIGH"));
+  if (checkTrackPowered()) {
+    if (debugS88Pins) {
+      Serial.println(F("S88: Reset -> HIGH"));
+    }
+    digitalWrite(S88ResetAll, HIGH);
+  } else if (debugS88) {
+    Serial.println(F("No track power"));
   }
-  digitalWrite(S88ResetAll, HIGH);
   return 0xff;
 }
 

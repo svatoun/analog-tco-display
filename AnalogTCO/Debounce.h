@@ -20,7 +20,7 @@
  */
 class Debouncer {
   private:
-  byte onCounter = 4, offCounter = 4;
+  byte onCounter, offCounter;
   const byte  stateBytes;
   byte* const stableState;
   byte* changes;

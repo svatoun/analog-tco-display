@@ -159,7 +159,7 @@ void setup() {
   registerLineCommand("CLR", &commandClear);
   registerLineCommand("SAV", &commandSave);
 
-  testCommunication();
+//  testCommunication();
 
   Serial.print(F("Analog Control Panel, version ")); Serial.print(majorVersion); Serial.print('.'); Serial.println(minorVersion);
   Serial.println(F("Copyright (c) 2018, belgarat@klfree.net; licensed under Apache License 2.0 "));
@@ -168,6 +168,7 @@ void setup() {
 }
 
 void resetAll() {
+  eeData = EEData();
   resetInput();
   resetOutput();
 }
@@ -197,20 +198,21 @@ void shiftIORow() {
   }
   recordStartTime(lastIORowStart);
   
-  prepareOutputRow();         
+//  prepareOutputRow();         
   selectDemuxLine(ioRowIndex);
   delayMicroseconds(4);
 
-  displayOutputRow();
+//  displayOutputRow();
   processInputRow();
-  ioRowIndex = (ioRowIndex + 1) % maxRowCount;
+//  ioRowIndex = (ioRowIndex + 1) % maxRowCount;
+  ioRowIndex = 5;
 }
 
 const boolean testOnly = true;
 
 void loop() {
-    currentMillis = millis();
-    currentMillisLow = currentMillis & 0xffff;
+  currentMillis = millis();
+  currentMillisLow = currentMillis & 0xffff;
     
   shiftIORow();
   transmitFrames();
@@ -223,6 +225,7 @@ void loop() {
 void commandClear() {
   Serial.println(F("Clearing all settings"));
   resetAll();
+  saveAll();
   commandReset();
 }
 
@@ -260,5 +263,6 @@ void commandSave() {
 void commandDumpAll() {
   commandFlashDump();
   commandShowKeys();
+  dumpTrackSensitivity();
 }
 
