@@ -1,4 +1,12 @@
 
+/**
+ * S88 je implementovano jako stavovy automat. Kazda iterace loop() provede jeden krok (stav). 
+ * Kazdy krok se sestava z volani funkce a prodlevy pred dalsim krokem. Volana funkce vrati cislo nasledujiciho
+ * krok nebo 0xff, pokud se ma provest dalsi krok. Pokud jiz dalsi stav/krok neni, zacne se opet od zacatku.
+ * 
+ * Kdyz jeste neuplynula prodleva pred dalsim krokem, automat se ihned vraci.
+ */
+
 ///////////////////////// Configuration details for S88 //////////////////////////////////////
 
 const boolean debugS88 = false;

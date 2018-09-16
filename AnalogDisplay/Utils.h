@@ -129,7 +129,8 @@ static_assert(sizeof(KeySpec) > 3, "Large keyspec");
 
 
 byte analogTTLRead(byte pin) {
-  return (analogRead(pin) > ((1024 / 50) * 25)) ? 1 : 0;
+  // divided by 5V (full range), threshold 3V
+  return (analogRead(pin) > ((1024 / 50) * 30)) ? 1 : 0;
 }
 
 struct RemoteCommand {
