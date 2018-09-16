@@ -145,16 +145,17 @@ void Debouncer::tick() {
   print();
 }
 
-void Debouncer::stableChange(byte input, boolean state) {
+boolean Debouncer::stableChange(byte input, boolean state) {
     if (stableState != NULL) {
       if (readBit(stableState, input) == state) {
-        return;
+        return false;
       }
       writeBit(stableState, input, state);
     }
     if (debugDebouncer) {
       Serial.print(F("stable change: n:")); Serial.print(input); Serial.print(F(" s:")); Serial.println(state);
     }
+    return true;
 }
 
 void Debouncer::print() {

@@ -5,6 +5,8 @@ const boolean debugS88 = false;
 const boolean debugS88Pins = false;
 const boolean testS88 = false;
 
+volatile int input = 7;
+
 /**
  * Minimum 20ms between debounce tick.
  */
@@ -21,7 +23,7 @@ byte s88DebouncedState[s88ModuleCount];
 class S88toOutputDebouncer : public Debouncer {
   public:
   S88toOutputDebouncer(byte modCount, byte* debouncedState) : Debouncer(modCount, debouncedState) {}
-  virtual void stableChange(byte number, boolean nState);
+  virtual boolean stableChange(byte number, boolean nState);
 };
 
 S88toOutputDebouncer s88Debounce(s88ModuleCount, s88DebouncedState);
@@ -44,7 +46,84 @@ struct S88Phase {
   S88Phase(byte (*aHandler)(), unsigned int aDel) : handler(aHandler), delay(aDel) /*, id(none)*/ {}
 };
 
-byte mux;
+volatile int mux;
+
+
+volatile long intCount = 0;
+volatile long trackAboveLimit = 0;
+
+void resetIntCounters() {
+  noInterrupts();
+  if (intCount > 100) {
+    intCount = 0;
+    trackAboveLimit = 0;  
+  }
+  interrupts();
+}
+
+void startAnalogRead(int channel) {
+  noInterrupts();
+  ADMUX = (mux & ~0x07) | channel;
+  ADCSRA |= (1 << ADSC);  // start ADC measurements 
+  interrupts();
+}
+
+volatile int lastVoltage = 0;
+
+// Interrupt po zpracovani ADC vstupu
+ISR(ADC_vect)
+{
+  /*
+  int readLo = ADCL; // ADCL must be read first; reading ADCH will trigger next coversion.
+  int readHi = ADCH; 
+  int v = (readHi << 8) | readLo;
+  noInterrupts();
+  lastVoltage = v;
+  intCount++;
+  if (v >= eeData.minTrackVoltage) {
+    trackAboveLimit++;
+  }
+  ADMUX = (mux & ~0x07) | 7;
+  ADCSRA |= (1 << ADSC);  // start ADC measurements.
+  interrupts();
+  */
+  int readLo = ADCL; // ADCL must be read first; reading ADCH will trigger next coversion.
+  int readHi = ADCH; 
+  intCount++;
+  int v = (readHi << 8) | readLo;
+//  accum += v;
+  startAnalogRead(7);
+}
+
+void processVoltage() {
+  int v = analogRead(S88TrackInput);
+  intCount++;
+  lastVoltage = v;
+  intCount++;
+  if (v >= eeData.minTrackVoltage) {
+    trackAboveLimit++;
+  }
+}
+
+boolean checkTrackPowered() {
+  if (eeData.enableTrack == 0) {
+    return true;
+  }
+  if (debugS88) {
+    Serial.print("Voltage: ");
+    Serial.println(lastVoltage);
+  }
+  int total = intCount;
+  int okCount = trackAboveLimit;
+  int percent = (okCount * (long)100) / total;
+
+  if (debugS88) {
+    Serial.print("Voltage %: ");
+    Serial.println(percent);
+  }
+  resetIntCounters();
+  return percent >= eeData.minTrackPercent;
+}
 
 /**
  * Definition of the S88 automaton. The machine will wrap back to state 0 after the end of the array.
@@ -76,6 +155,7 @@ const S88Phase  automatonStates[] = {
 };
 
 void setupTrackInput() {
+#if 0
   // --------------- Shamelessly copied from http://yaab-arduino.blogspot.cz/2015/02/fast-sampling-from-analog-input.html
   // clear ADLAR in ADMUX (0x7C) to right-adjust the result
   // ADCL will contain lower 8 bits, ADCH upper 2 (in last two bits)
@@ -100,6 +180,9 @@ void setupTrackInput() {
   // This means that as soon as an ADC has finished, the next will be
   // immediately started.
   ADCSRB &= B11111000;
+
+  // Set the Prescaler to 32 (16000KHz/32 = 500KHz)
+  ADCSRA = (ADCSRA & B11111000) | B00000101;
   
   // Set ADIE in ADCSRA (0x7A) to enable the ADC interrupt.
   // Without this, the internal interrupt will not trigger.
@@ -112,7 +195,12 @@ void setupTrackInput() {
   // save the ADMUX value, will be combined with desired analog input later.
   mux = ADMUX;
 
-  startAnalogRead(S88TrackInput);
+  // start from input #0
+  input = 7;
+  sei();
+  startAnalogRead(input);
+  delay(10);
+#endif
 }
 
 void setupS88Ports() {
@@ -124,7 +212,7 @@ void setupS88Ports() {
 
   pinMode(S88TrackInput, INPUT);
 
-//  setupTrackInput();
+  setupTrackInput();
 
   registerLineCommand("SENS", &commandTrackSensitivity);
 }
@@ -135,9 +223,12 @@ void resetS88() {
   }
 }
 
-void S88toOutputDebouncer::stableChange(byte number, boolean nState) {
-  Debouncer::stableChange(number, nState);
+boolean S88toOutputDebouncer::stableChange(byte number, boolean nState) {
+  if (!Debouncer::stableChange(number, nState)) {
+    return false;
+  }
   setOutputFromSensor(number, nState);
+  return true;
 }
 
 /**
@@ -242,7 +333,6 @@ boolean processS88Bus() {
   }
   s88WaitMicros = 0;
   const S88Phase& s = automatonStates[s88CurrentState];
-  
   if (s.handler == NULL) {
     return false;
   }
@@ -261,6 +351,9 @@ boolean processS88Bus() {
   if (res < (sizeof(automatonStates) / sizeof(automatonStates[0]))) {
     s88CurrentState = res;
   }
+  if (debugS88Pins) {
+    Serial.print(F("curState: ")); Serial.print(s88CurrentState); Serial.print(F(" res: ")); Serial.println(res);
+  }
   s88LastMicros = usec;
   if (s88CurrentState == 0) {
     if (elapsedTime(s88DebounceTime, delayBetweenDebounceTick)) {
@@ -269,48 +362,6 @@ boolean processS88Bus() {
   }
   return s88CurrentState == 0;
 }
-
-volatile int intCount = 0;
-volatile int trackAboveLimit = 0;
-
-void resetIntCounters() {
-  noInterrupts();
-  intCount = 0;
-  trackAboveLimit = 0;  
-  interrupts();
-}
-
-void startAnalogRead(int channel) {
-  noInterrupts();
-  ADMUX = (mux & ~0x07) | channel;
-  ADCSRA |= (1 << ADSC);  // start ADC measurements 
-  interrupts();
-  resetIntCounters();
-}
-
-// Interrupt po zpracovani ADC vstupu
-ISR(ADC_vect)
-{
-  int readLo = ADCL; // ADCL must be read first; reading ADCH will trigger next coversion.
-  int readHi = ADCH; 
-  int v = (readHi << 8) | readLo;
-
-  intCount++;
-  if (v >= eeData.minTrackVoltage) {
-    trackAboveLimit++;
-  }
-  interrupts();
-}
-
-boolean checkTrackPowered() {
-  int total = intCount;
-  int okCount = trackAboveLimit;
-
-  int percent = (okCount * (long)100) / total;
-  resetIntCounters();
-  return percent >= eeData.minTrackPercent;
-}
-
 void dumpTrackSensitivity() {
   Serial.print(F("SENS:")); Serial.print(eeData.minTrackVoltage); Serial.print(':'); Serial.println(eeData.minTrackPercent);
 }

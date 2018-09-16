@@ -3,7 +3,7 @@
  * Delay after one I/O row was processed, outputs are lit and before
  * the processing changes io demux to the next row.
  */
-const int ioRowSwitchDelay = 10;
+const int ioRowSwitchDelay = 0;
 //const int ioRowSwitchDelay = 1000;
 const int keyboardDebounceTime = 20;
 const int maxContinuousTransfer = 30;
@@ -68,6 +68,10 @@ const int FbPowerLatch = 6;
 ////////////////////// TCO pullup latches SHIFT REGISTER ///////////////////////
 const int TcInputClock = SHIFTREG_CLOCK_COMMON;
 const int TcInputData = 2;
+
+//const int TcInputClock = 13;
+//const int TcInputData = 12;
+
 const int TcInputLatch = A0;
 
 ////////////////////// RS485 communication pins //////////////////////
@@ -82,8 +86,10 @@ const int DemuxAddr1 = 10;
 const int DemuxAddr0 = 11;
 
 
-const byte inputRows = 16;
+const byte inputRows = 8;   // max 16
 const byte inputColumns = 8;
+
+static_assert(inputRows == 8 || inputRows == 16, "Either 8 or 16 rows must be selected");
 
 const byte outputRows = 16;
 const byte outputColumns = 8;

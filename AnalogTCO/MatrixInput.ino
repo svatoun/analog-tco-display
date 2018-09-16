@@ -13,7 +13,7 @@ byte inputDebounced[inputByteSize];
 class KeyDebouncer : public Debouncer {
   public:
   KeyDebouncer(byte modCount, byte* debouncedState);
-  virtual void stableChange(byte number, boolean nState);
+  virtual boolean stableChange(byte number, boolean nState);
 };
 
 KeyDebouncer::KeyDebouncer(byte modCount, byte* debouncedState) : Debouncer(modCount, debouncedState) {
@@ -67,9 +67,9 @@ unsigned int lastDebounceTick = 0;
 void processInputRow() {
   digitalWrite(TcInputClock, LOW);
   digitalWrite(TcInputLatch, HIGH);
-  delayMicroseconds(10);
+//  delayMicroseconds(10);
   digitalWrite(TcInputClock, HIGH);
-  delayMicroseconds(10);
+//  delayMicroseconds(10);
   digitalWrite(TcInputLatch, LOW);
   byte input1 = TcInputData > 13 ? analogShiftIn(TcInputData, TcInputClock, LOW) : shiftIn(TcInputData, TcInputClock, LOW);
   input1 = ~input1;
@@ -102,8 +102,10 @@ int findKeyTranslation(byte nx, byte ny, int& target) {
   return -1;
 }
 
-void KeyDebouncer::stableChange(byte number, boolean nState) {
-  Debouncer::stableChange(number, nState);
+boolean KeyDebouncer::stableChange(byte number, boolean nState) {
+  if (!Debouncer::stableChange(number, nState)) {
+    return false;
+  }
   byte ny = number / inputColumnsRounded;
   byte nx = number - (ny * inputColumnsRounded);
 
@@ -112,6 +114,7 @@ void KeyDebouncer::stableChange(byte number, boolean nState) {
   }
 
   pressKey(nx, ny, nState);
+  return true;
 }
 
 void pressKey(byte nx, byte ny, boolean nState) {
@@ -150,11 +153,12 @@ void commandMapKeys() {
 
   if (c >= '1' && c <= '9') {
     index = nextNumber();
-    if (index < 1 || index > slotCnt) {
+    if (index < 1 || index > slotCnt + 1) {
       Serial.println(F("Bad index"));
       return;
     }
     c = *inputPos;
+    index--;
   }
   
   switch (c) {
@@ -247,7 +251,7 @@ void commandMapKeys() {
   spec.target = target;
   spec.commandBase = cmdBase;
   if ((index > -1) && (index < slotCnt)) {
-    pos = keyTranslations + (index - 1);
+    pos = keyTranslations + index;
     memmove(pos + 1, pos, (freeSlot - pos) * sizeof(KeySpec));
   }
   *pos = spec;    

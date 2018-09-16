@@ -12,8 +12,12 @@ struct EEData {
   boolean   flashDefault;
   int       minTrackVoltage;
   int       minTrackPercent;
+  
+  byte      enableKeys : 1;
+  byte      enableS88 : 1;
+  byte      enableTrack : 1;
 
-  EEData() : flashDefault(false), busId(1), minTrackVoltage(40), minTrackPercent(20) {}
+  EEData() : flashDefault(false), busId(1), minTrackVoltage(40), minTrackPercent(20), enableKeys(1), enableS88(1), enableTrack(1) {}
 };
 
 extern EEData eeData;

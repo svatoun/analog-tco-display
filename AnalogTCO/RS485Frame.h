@@ -11,12 +11,12 @@
 /**
  * Kolik ms po zacatku prijmu muze prijit start byte. 
  */
-const int recvDelayStartByte = 50;
+const int recvDelayStartByte = 20;
 
 /**
  * Kolik ms smi uplynout mezi jednotlivymi byte packetu.
  */
-const int recvDelayBetweenPacketBytes = 10;
+const int recvDelayBetweenPacketBytes = 5;
 
 typedef uint8_t address_t;
 typedef uint8_t len_t;

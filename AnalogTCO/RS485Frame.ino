@@ -32,7 +32,7 @@
  * musi byt `volatile`.
  */
 
-const boolean debug485Frame = true;
+const boolean debug485Frame = false;
 const boolean debug485Recv = false;
 
 #include "RS485Frame.h"
@@ -62,7 +62,11 @@ byte recvBuffer[recvBufferSize + 2];
  */
 const byte* recvBufferLimit = recvBuffer + recvBufferSize;
 
+#ifdef NEO
 NeoSWSerial commSerial( rs485Receive, rs485Send );
+#else 
+SoftwareSerial commSerial( rs485Receive, rs485Send );
+#endif
 
 enum CommPhase {
   idle = 0,     // necinny, necekaji se data. Data jsou povazovana za chybu / ignorovana
@@ -97,10 +101,13 @@ const byte *xmitPtr = NULL;
 
 void setupRS485Ports() {
   pinMode(rs485Receive, INPUT);
+  digitalWrite(rs485Send, HIGH);
   pinMode(rs485Direction, OUTPUT);
   pinMode(rs485Send, OUTPUT);
 
+#ifdef NEO
   commSerial.attachInterrupt(&isrReceiveData);
+#endif
   commSerial.begin(9600);
 }
 
@@ -116,7 +123,7 @@ void transmitFrame(const CommFrame* p) {
   if (debug485Frame) {
     Serial.print(F("xmit:")); Serial.println(xmitCounter);
   }
-
+  digitalWrite(rs485Send, HIGH);
   digitalWrite(rs485Direction, HIGH);
 }
 
@@ -158,8 +165,14 @@ void stopTransmitter() {
   xmitPtr = NULL;
   xmitPhase = idle;
   delayMicroseconds(5);
-  Serial.println("Stop transmitter");
+  if (debug485Frame) {
+    Serial.println("Stop transmitter");
+  }
+  digitalWrite(rs485Send, HIGH);
   digitalWrite(rs485Direction, LOW);
+  while (commSerial.available()) {
+    commSerial.read();
+  }
 }
 
 /**
@@ -284,6 +297,11 @@ void initPayload() {
  * na start byte, pripadne na dalsi byte packetu
  */
 void periodicReceiveCheck() {
+#ifndef NEO
+  if (commSerial.available()) {
+    isrReceiveData(commSerial.read());
+  }
+#endif
   if (isReceiving()) {
     long d = currentMillis - lastReceiveMillis;
     boolean tm = false;
@@ -326,6 +344,7 @@ void isrReceiveData(uint8_t data) {
       return;
     }
     initPayload();
+    Serial.print("Start byte: "); Serial.println(lastReceiveMillis & 0xffff);
     if (debug485Recv) {
       Serial.println(F("Got start"));
     }

@@ -1,4 +1,10 @@
+#undef NEO
+#ifdef NEO
 #include <NeoSWSerial.h>
+#else
+#include <SoftwareSerial.h>
+#endif
+
 #include <EEPROM.h>
 
 #include "Config.h"
@@ -61,7 +67,6 @@ void setupPorts() {
  * matice
  */
 void advanceRowIndex() {
-  ioRowIndex = (ioRowIndex + 1) % maxRowCount;
   selectDemuxLine(ioRowIndex);
 }
 
@@ -158,6 +163,8 @@ void setup() {
   registerLineCommand("DMP", &commandDumpAll);
   registerLineCommand("CLR", &commandClear);
   registerLineCommand("SAV", &commandSave);
+  registerLineCommand("FTR", &commandFeature);
+  registerLineCommand("INF", &commandInfo);
 
 //  testCommunication();
 
@@ -196,28 +203,30 @@ void shiftIORow() {
   if (!elapsedTime(lastIORowStart, ioRowSwitchDelay)) {
     return;
   }
-  recordStartTime(lastIORowStart);
   
-//  prepareOutputRow();         
+  prepareOutputRow();         
   selectDemuxLine(ioRowIndex);
-  delayMicroseconds(4);
-
-//  displayOutputRow();
+  
+  displayOutputRow();
   processInputRow();
-//  ioRowIndex = (ioRowIndex + 1) % maxRowCount;
-  ioRowIndex = 5;
+  ioRowIndex = (ioRowIndex + 1) % 16;
 }
 
 const boolean testOnly = true;
 
+extern volatile long  intCount;
 void loop() {
-  currentMillis = millis();
-  currentMillisLow = currentMillis & 0xffff;
+  processVoltage();
+  updateTime();
     
   shiftIORow();
+  updateTime();
   transmitFrames();
+
+  updateTime();
   processS88Bus();
 
+  updateTime();
   flipFlashes();
   processTerminal();
 }
@@ -264,5 +273,56 @@ void commandDumpAll() {
   commandFlashDump();
   commandShowKeys();
   dumpTrackSensitivity();
+  printFeatures();
+}
+
+void printFeatures() {
+  if (eeData.enableTrack && eeData.enableKeys && eeData.enableS88) {
+    Serial.println(F("FTR:a:1"));
+    return;
+  }
+  Serial.print(F("FTR:t:")); Serial.println(eeData.enableTrack);
+  Serial.print(F("FTR:k:")); Serial.println(eeData.enableKeys);
+  Serial.print(F("FTR:s:")); Serial.println(eeData.enableS88);
+}
+
+void commandFeature() {
+  char f = *inputPos;
+  if (f == 0) {
+    printFeatures();
+    return;
+  }
+  ++inputPos;
+  if (*inputPos != ':') {
+    Serial.println(F("Bad syntax"));
+    return;
+  }
+  inputPos++;
+  boolean en;
+  switch (*inputPos) {
+    case '1': case '+': case 'y':
+      en = 1; break;
+    case '0': case '-': case 'n':
+      en = 0; break;
+    default:
+      Serial.println(F("Bad state"));
+      return;
+  }
+  switch (f) {
+    case 'a':
+      eeData.enableTrack = eeData.enableKeys = eeData.enableS88 = en;
+      break;
+    case 't': eeData.enableTrack = en; break; 
+    case 'k': eeData.enableKeys = en; break; 
+    case 's': eeData.enableS88 = en; break; 
+    default:
+      Serial.println(F("Bad feature"));
+      return;
+  }
+}
+
+void commandInfo() {
+  Serial.println(F("Output state:"));
+  printMatrixOutput();
 }
 

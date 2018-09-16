@@ -9,11 +9,13 @@ const byte inputByteSize = (inputRows * inputColumns + 7) / 8;
 
 const byte addressBroadcast = 0xff;
 
+#ifdef FAST_ADDREESS
 #if defined(__AVR_ATmega328P__)  // Arduino UNO, NANO
 /**
  * Write all 4 address lines at once
  */
 inline void selectDemuxLine(byte line) {
+  /*
   byte rev = 0;
   // because of design error, address lines are reversed compared to bit order
   if (line & 0x01) rev |= 8;
@@ -23,13 +25,29 @@ inline void selectDemuxLine(byte line) {
   byte pb = PORTB & 0xf0;
   pb |= (rev & 0x0f);
   PORTB = pb;
+  */
 }
 #else
 #   error "Unsupported board version"
 #endif
+#else 
+inline void selectDemuxLine(byte line) {
+  if (line < 8) {
+    digitalWrite(DemuxAddr0, line & 0x01);
+    digitalWrite(DemuxAddr1, line & 0x02);
+    digitalWrite(DemuxAddr2, line & 0x04);
+    digitalWrite(DemuxAddr3, 1);
+  }
+}
+#endif
 
 void recordStartTime(unsigned int& store) {
   store = currentMillis & 0xffff;
+}
+
+void updateTime() {
+  currentMillis = millis();
+  currentMillisLow = currentMillis & 0xffff;
 }
 
 /**

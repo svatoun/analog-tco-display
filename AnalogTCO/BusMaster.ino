@@ -29,7 +29,7 @@
  * ktera si ridi prijem i vysilani, a pocita timeouty. Po dosazeni konce fronty odesilanych zprav a uplynuti timeoutu 
  */
 
-const boolean debugBusMaster = true;
+const boolean debugBusMaster = false;
 
 const boolean printErrors = true;
 
@@ -206,8 +206,11 @@ void masterStartReceiver() {
   if (!isReceiving()) {
     startReceiver();  
   }
+  updateTime();
   recordStartTime(startReceiverTime);
-  Serial.print("Master receiving: "); Serial.println(startReceiverTime);
+  if (debugBusMaster) {
+    Serial.print("Master receiving: "); Serial.print(startReceiverTime, HEX); Serial.print('-'); Serial.println(millis(), HEX);
+  }
 }
 
 void masterStopReceiver() {
@@ -222,13 +225,15 @@ void transmitFrames() {
   if (isReceiving()) {
     if (startReceiverTime > 0 && elapsedTime(startReceiverTime, ackTimeout)) {
       if (debugBusMaster) {
-        Serial.print(F("Timeout @start "));  Serial.println(currentMillisLow);
+        Serial.print(F("Timeout @start "));  Serial.print(startReceiverTime, HEX); Serial.print('-'); Serial.println(millis(), HEX);
       }
+      /*
       boolean r = masterReceiving;
       masterStopReceiver();
       if (r) {
         scheduleRepeat();
       }
+      */
     }
     // we are listening now.
     return;

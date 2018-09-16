@@ -41,7 +41,7 @@ class Debouncer {
    * @param number cislo vstupu
    * @param nState novy stav
    */
-  virtual void stableChange(byte number, boolean nState);
+  virtual boolean stableChange(byte number, boolean nState);
 
   public:
   /**

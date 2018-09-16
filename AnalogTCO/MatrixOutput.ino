@@ -1,4 +1,4 @@
-const boolean debugMatrixOutput = true;
+const boolean debugMatrixOutput = false;
 const boolean debugFlashes = false;
 
 const int flashMillis = 500;
@@ -11,7 +11,7 @@ const int onFlashCount = 8;
 static_assert(outputColumns % 8 == 0, "Number of output columns must be a multiply of 8");
 static_assert((sizeof(unsigned int) * 8) >= outputColumns, "Max 16 columns is supported");
 
-const byte outputRowSize = (outputColumns + 7 / 8);
+const byte outputRowSize = ((outputColumns + 7) / 8);
 const int maxOutputs = outputRows * outputColumns;
 
 /**
@@ -230,6 +230,7 @@ void prepareOutputRow() {
 }
 
 void displayOutputRow() {
+  digitalWrite(FbPowerLatch, LOW);
   if (outputColumns == 8) {
     shiftOut(FbPowerData, FbPowerClock, MSBFIRST, outRowValue);
   } else if (outputColumns == 16) {
@@ -239,9 +240,8 @@ void displayOutputRow() {
     // unsupported
     return;
   }
-  analogWrite(FbPowerLatch, HIGH);
-  delayMicroseconds(4);
-  analogWrite(FbPowerLatch, LOW);
+  digitalWrite(FbPowerLatch, HIGH);
+  digitalWrite(FbPowerLatch, LOW);
 }
 
 void setOutputFromSensor(byte sensorNumber, boolean state) {
@@ -421,6 +421,33 @@ void commandOut() {
     Serial.println(F("Bad output"));
     return;
   }
-  setOutput(n, on);
+  setOutput(n - 1, on);
+}
+
+void print2Digits(int a) {
+  if (a < 10) Serial.print('0');
+  Serial.print(a);
+}
+
+void print3Digits(int a) {
+  if (a < 10) Serial.print(' ');
+  if (a < 100) Serial.print(' ');
+  Serial.print(a);
+}
+
+void print8Bits(int a) {
+  byte m = 0x80;
+  while (m > 0) {
+    Serial.print((a & m) > 0 ? '1': '0');
+    m >>= 1;
+  }
+}
+
+void printMatrixOutput() {
+  for (byte r = 0; r < outputRows; r++) {
+    Serial.print('#'); print2Digits(r + 1); Serial.print('['); print3Digits(r * 8 + 1); Serial.print('-'); print3Digits(r * 8 + 1 + 7); Serial.print(F("]:\t")); 
+    print8Bits(physicalOutput[r]);
+    Serial.println();
+  }
 }
 
