@@ -1,21 +1,21 @@
 
 /**
- * Delay after one I/O row was processed, outputs are lit and before
- * the processing changes io demux to the next row.
+ * Zpozdeni pred zpracovanim dalsiho radku - behem te doby LEDky radku
+ * sviti. 0 znamena, ze se ihned bude zpracovavat dalsi radek. Doba se udava
+ * v ms
  */
 const int ioRowSwitchDelay = 0;
-//const int ioRowSwitchDelay = 1000;
+
 const int keyboardDebounceTime = 20;
 const int maxContinuousTransfer = 30;
 
-const byte s88ModuleCount = 4;
+const byte s88ModuleCount = 1;
 
 /**
  * Velikost prijmoveho bufferu v byte. Musi byt delsi nez nejdelsi zpracovavany packet.
  * Delsi packety se ani nezaznamenavaji a zahazuji rovnou.
  */
 const int recvBufferSize = 20;
-
 
 ////////////////////// S88 input pin assignments ///////////////////////
 /**
@@ -47,6 +47,16 @@ const int S88ResetTrack = A2;
  * Vstup pro mereni napeti v kolejich
  */
 const int S88TrackInput = A7;
+
+/**
+ * Minimum 20ms between S88 debounce tick.
+ */
+const int delayBetweenDebounceTick = 20;
+
+/**
+ * Kolik tiku musi byt stabilni zmena na 0 pred prijetim stavu
+ */
+const int S88OffDebounce = 5;
 
 
 ////////////////////// Feedback POWER+ SHIFT REGISTER ///////////////////////
@@ -91,7 +101,7 @@ const byte inputColumns = 8;
 
 static_assert(inputRows == 8 || inputRows == 16, "Either 8 or 16 rows must be selected");
 
-const byte outputRows = 16;
+const byte outputRows = 8;
 const byte outputColumns = 8;
 
 const byte maxRowCount = max(inputRows, outputRows);

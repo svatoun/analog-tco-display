@@ -1,16 +1,29 @@
 
 ///////////////////////// Configuration details for S88 //////////////////////////////////////
 
-const boolean debugS88 = true;
-const boolean debugS88Pins = true;
+const boolean debugS88 = false;
+const boolean debugS88Pins = false;
 const boolean testS88 = false;
 
 volatile int input = 7;
 
+
 /**
- * Minimum 20ms between debounce tick.
+ * Pocet mereni napeti v kolejich, ktere presahuje nastaveny limit
  */
-const int delayBetweenDebounceTick = 20;
+volatile long intCount = 0;
+
+/**
+ * Minimalni pozadovane napeti v kolejich. U pulzniho regulatoru 
+ * to muze byt i docela hodne
+ */
+volatile long trackAboveLimit = 0;
+
+/**
+ * Posledni zaznamenane napeti; diagnostika
+ */
+volatile int lastVoltage = 0;
+
 
 /**
  * Debounced state of the sensors, one bit per sensor. Use bitRead/bitWrite to change data
@@ -46,12 +59,6 @@ struct S88Phase {
   S88Phase(byte (*aHandler)(), unsigned int aDel) : handler(aHandler), delay(aDel) /*, id(none)*/ {}
 };
 
-volatile int mux;
-
-
-volatile long intCount = 0;
-volatile long trackAboveLimit = 0;
-
 void resetIntCounters() {
   noInterrupts();
   if (intCount > 100) {
@@ -61,39 +68,6 @@ void resetIntCounters() {
   interrupts();
 }
 
-void startAnalogRead(int channel) {
-  noInterrupts();
-  ADMUX = (mux & ~0x07) | channel;
-  ADCSRA |= (1 << ADSC);  // start ADC measurements 
-  interrupts();
-}
-
-volatile int lastVoltage = 0;
-
-// Interrupt po zpracovani ADC vstupu
-ISR(ADC_vect)
-{
-  /*
-  int readLo = ADCL; // ADCL must be read first; reading ADCH will trigger next coversion.
-  int readHi = ADCH; 
-  int v = (readHi << 8) | readLo;
-  noInterrupts();
-  lastVoltage = v;
-  intCount++;
-  if (v >= eeData.minTrackVoltage) {
-    trackAboveLimit++;
-  }
-  ADMUX = (mux & ~0x07) | 7;
-  ADCSRA |= (1 << ADSC);  // start ADC measurements.
-  interrupts();
-  */
-  int readLo = ADCL; // ADCL must be read first; reading ADCH will trigger next coversion.
-  int readHi = ADCH; 
-  intCount++;
-  int v = (readHi << 8) | readLo;
-//  accum += v;
-  startAnalogRead(7);
-}
 
 void processVoltage() {
   int v = analogRead(S88TrackInput);
@@ -143,7 +117,7 @@ const S88Phase  automatonStates[] = {
   S88Phase(&s88ResetHigh, 40),
   S88Phase(&s88ResetLow, 50),
 
-  S88Phase(&s88DataInit, 0),
+  S88Phase(&s88DataInit, 20),
   // during setup, clock is already low at this point
   S88Phase(&s88ClockLow, 30),
   // now the normal read cycle may happen
@@ -155,52 +129,7 @@ const S88Phase  automatonStates[] = {
 };
 
 void setupTrackInput() {
-#if 0
-  // --------------- Shamelessly copied from http://yaab-arduino.blogspot.cz/2015/02/fast-sampling-from-analog-input.html
-  // clear ADLAR in ADMUX (0x7C) to right-adjust the result
-  // ADCL will contain lower 8 bits, ADCH upper 2 (in last two bits)
-  ADMUX &= B11011111;
-  
-  // Set REFS1..0 in ADMUX (0x7C) to change reference voltage to the
-  // proper source (01)
-  ADMUX |= B01000000;
-  
-  // Clear MUX3..0 in ADMUX (0x7C) in preparation for setting the analog
-  // input
-  ADMUX &= B11110000;
-  
-  // Set ADEN in ADCSRA (0x7A) to enable the ADC.
-  // Note, this instruction takes 12 ADC clocks to execute
-  ADCSRA |= B10000000;
-  
-  // Set ADATE in ADCSRA (0x7A) to enable auto-triggering.
-  ADCSRA |= B00100000;
-  
-  // Clear ADTS2..0 in ADCSRB (0x7B) to set trigger mode to free running.
-  // This means that as soon as an ADC has finished, the next will be
-  // immediately started.
-  ADCSRB &= B11111000;
-
-  // Set the Prescaler to 32 (16000KHz/32 = 500KHz)
-  ADCSRA = (ADCSRA & B11111000) | B00000101;
-  
-  // Set ADIE in ADCSRA (0x7A) to enable the ADC interrupt.
-  // Without this, the internal interrupt will not trigger.
-  ADCSRA |= B00001000;
-  
-  // Enable global interrupts
-  // AVR macro included in <avr/interrupts.h>, which the Arduino IDE
-  // supplies by default.
-
-  // save the ADMUX value, will be combined with desired analog input later.
-  mux = ADMUX;
-
-  // start from input #0
-  input = 7;
-  sei();
-  startAnalogRead(input);
-  delay(10);
-#endif
+  pinMode(S88TrackInput, INPUT);
 }
 
 void setupS88Ports() {
@@ -210,11 +139,16 @@ void setupS88Ports() {
   pinMode(S88ResetAll, OUTPUT);
   pinMode(S88ResetTrack, OUTPUT);
 
-  pinMode(S88TrackInput, INPUT);
+  digitalWrite(S88Latch, LOW);
+  digitalWrite(S88Clock, LOW);
+  digitalWrite(S88ResetAll, LOW);
+  digitalWrite(S88ResetTrack, LOW);
 
   setupTrackInput();
 
   registerLineCommand("SENS", &commandTrackSensitivity);
+
+  s88Debounce.setOffCounter(S88OffDebounce);
 }
 
 void resetS88() {
@@ -232,15 +166,15 @@ boolean S88toOutputDebouncer::stableChange(byte number, boolean nState) {
 }
 
 /**
- * State of the reading automaton
+ * Stav automatu S88
  */
 byte s88CurrentState = 0;
 /**
- * Micros after the last S88 processing
+ * Microsekundy od posledniho zpracovani S88
  */
 unsigned long s88LastMicros = 0;
 /**
- * How many micros to wait before next processing step
+ * Kolik mikrosekund se musi pockat do nasledujiciho kroku
  */
 byte s88WaitMicros = 0;
 
@@ -275,7 +209,9 @@ byte s88DataInit() {
   }
   s88Received = 0;
   s88BitCount = 0;
-  return 0xff;
+  // hodiny presly do stavu HIGH, zatimco PE signal uz byl LOW,
+  // takze nejvyssi bit narotoval na Q7 a da se precist.
+  return s88ReadData();
 }
 
 byte s88ReadData() {
@@ -307,6 +243,7 @@ byte s88ReadData() {
   if (debugS88Pins) {
     Serial.println(F("S88: received full byte"));
   }
+//  Serial.println(s88Received, BIN);
   // process the byte as a change
   s88Debounce.debounce(s88ModuleNumber, &s88Received, sizeof(s88Received));
 
@@ -328,9 +265,19 @@ byte s88Finish() {
  */
 boolean processS88Bus() {
   unsigned long usec = micros();
-  if (s88WaitMicros != 0 && ((usec - s88LastMicros) < s88WaitMicros)) {
-    return false;
+  if (s88WaitMicros != 0) {
+      if (usec < s88LastMicros) {
+          // Preteceni. Uplynuly cas spocitame jako pocet usec do max hodnoty plus
+          // hodnotu casovace po preteceni.
+          unsigned long diff = (-s88LastMicros) + usec;
+          if (diff < s88WaitMicros) {
+            return false;
+          }
+      } else if (((usec - s88LastMicros) < s88WaitMicros)) {
+          return false;
+      }
   }
+  
   s88WaitMicros = 0;
   const S88Phase& s = automatonStates[s88CurrentState];
   if (s.handler == NULL) {
@@ -362,6 +309,8 @@ boolean processS88Bus() {
   }
   return s88CurrentState == 0;
 }
+
+
 void dumpTrackSensitivity() {
   Serial.print(F("SENS:")); Serial.print(eeData.minTrackVoltage); Serial.print(':'); Serial.println(eeData.minTrackPercent);
 }
@@ -409,6 +358,19 @@ byte s88ClockHigh() {
     Serial.println(F("S88: Clock -> HIGH"));
   }
   digitalWrite(S88Clock, HIGH);
+
+  if (debugS88Pins) {
+    boolean b;
+    if (S88Input > 13) {
+      /**
+       * Interpret approx 2.5V from the analog pin as true
+       */
+      b = analogTTLRead(S88Input);
+    } else {
+      b = digitalRead(S88Input);
+    }
+    Serial.print(F("** Read @clock: ")); Serial.println(b);
+  }
   return 0xff;
 }
 
