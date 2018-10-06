@@ -5,7 +5,7 @@
  */
 const int ioRowSwitchDelay = 0;
 //const int ioRowSwitchDelay = 1000;
-const int keyboardDebounceTime = 20;
+const int keyboardDebounceTime = 50;
 const int maxContinuousTransfer = 30;
 
 const byte s88ModuleCount = 4;

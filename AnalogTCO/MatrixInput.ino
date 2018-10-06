@@ -1,5 +1,6 @@
-const boolean debugKeyInput = true;
+const boolean debugKeyInput = false;
 const boolean debugKeyFn = true;
+const boolean debugKeySearch = true;
 
 static_assert(inputColumns % 8 == 0, "Number of output columns must be a multiply of 8");
 static_assert((sizeof(unsigned int) * 8) >= inputColumns, "Max 16 columns is supported");
@@ -80,27 +81,55 @@ void processInputRow() {
 }
 
 int findKeyTranslation(byte nx, byte ny, int& target) {
+  if (debugKeySearch) {
+    Serial.print(F("Search: ")); Serial.print(ny); Serial.print(','); Serial.println(nx);
+  }
   for (const KeySpec* spec = keyTranslations; !spec->isEmpty(); spec++) {
+    if (debugKeySearch) {
+      Serial.print(F("Trying: ")); spec->printDef(); Serial.println();
+    }
     if (spec->matrix) {
       if ((spec->x > nx) || (spec->y > ny)) {
+        if (debugKeySearch) {
+          Serial.println(F("Start too high"));
+        }
         continue;
       }
     }
-    byte w = (spec->lenOrMatrix & 0xf);
-    byte h = (spec->lenOrMatrix >> 4);
-    if ((w < nx) || (h < ny)) {
+    byte w = (spec->lenOrMatrix & 0xf) + 1;
+    byte h = (spec->lenOrMatrix >> 4) + 1;
+
+    byte mx = spec->x + w;
+    byte my = spec->y + h;
+    if (debugKeySearch) {
+      Serial.print(F("h:")); Serial.print(h); Serial.print('\t'); Serial.print(my); 
+      Serial.print(F("\tw: ")); Serial.print(w); Serial.print('\t'); Serial.println(mx); 
+    }
+    if ((mx <= nx) || (my <= ny)) {
+      if (debugKeySearch) {
+        Serial.println(F("End too low"));
+      }
       continue;
     }
-    byte fx = w - spec->x + 1;
-    byte fy = h + spec->y + 1;
 
-    byte r = (ny - spec->y) * fx;
-    r += (nx - spec->x);
+    byte fx = w;
+    byte dx = (nx - spec->x);
+    byte dy = (ny - spec->y);
+    
+    byte r = fx * dy + dx;
     target = spec->target;
-    return r + spec->commandBase;
+    byte cmd = r + spec->commandBase;
+    if (debugKeySearch) {
+      Serial.print(F("dx: ")); Serial.print(dx); Serial.print(F("\tdy: ")); Serial.print(dy); 
+      Serial.print(F("\tline size: ")); Serial.print(fx); Serial.print(F("\toffset: ")); Serial.println(r); 
+      Serial.print(F("target: ")); Serial.print(target); Serial.print(F("\tcmd: ")); Serial.println(cmd); 
+    }
+    return cmd;
   }
   return -1;
 }
+
+long sensTime = millis() + 500;
 
 boolean KeyDebouncer::stableChange(byte number, boolean nState) {
   if (!Debouncer::stableChange(number, nState)) {
@@ -111,6 +140,10 @@ boolean KeyDebouncer::stableChange(byte number, boolean nState) {
 
   if (debugKeyInput) {
     Serial.print("Stable change: "); Serial.print(inputColumnsRounded); Serial.print(';'); Serial.print(number); Serial.print('='); Serial.println(nState);
+  }
+
+  if (currentMillis < sensTime) {
+    return;
   }
 
   pressKey(nx, ny, nState);
@@ -175,10 +208,24 @@ void commandMapKeys() {
   inputPos++;
   if (*inputPos != ':') {
       Serial.println(F("Syntax err"));
+      return;
   }
   inputPos++;
-  int x = nextNumber();
+  char *colon = strchr(inputPos, ':');
+  if (colon == NULL) {
+    Serial.println(F("Bad definition"));
+    return;
+  }
+  *colon = 0;
+  char *dot = strchr(inputPos, ',');
+  if (dot == NULL) {
+    Serial.print(F("Bad point"));
+    return;
+  }
+  *dot = 0;
   int y = nextNumber();
+  inputPos = dot + 1;
+  int x = nextNumber();
 
   if ((x < 1) || (x > inputColumns)) {
     Serial.println(F("Bad column"));
@@ -188,40 +235,41 @@ void commandMapKeys() {
     Serial.println(F("Bad row"));
     return;
   }
+  inputPos = colon + 1;
   int lengthOrMatrix;
-
+  
   x--;
   y--;
   if (matrix) {
-    char *colon = strchr(inputPos, ':');
+    colon = strchr(inputPos, ':');
     if (colon == NULL) {
       Serial.println(F("Bad definition"));
       return;
     }
     *colon = 0;
-    char *dot = strchr(inputPos, ',');
+    dot = strchr(inputPos, ',');
     if (dot == NULL) {
-      Serial.print(F("Bad rect format"));
+      Serial.print(F("Bad dim format"));
       return;
     }
     *dot = 0;
-    int w = nextNumber();
-    inputPos = dot + 1;
     int h = nextNumber();
+    inputPos = dot + 1;
+    int w = nextNumber();
 
     if (w < 1 || h < 1) {
-      Serial.print(F("Invalid dim"));
+      Serial.print(F("Bad dim"));
       return;
     }
-    w += x;
-    h += y;
-    if ((w > inputColumns) || (h > inputRows)) {
+    byte ex = x + w;
+    byte ey = y + h;
+    if ((ex > inputColumns) || (ey > inputRows)) {
       Serial.println(F("Large dim"));
       return;
     }
     h--;
     w--;
-    lengthOrMatrix = (h & 0x0f) << 4 | w;
+    lengthOrMatrix = ((h & 0x0f) << 4) | w;
     inputPos = colon + 1;
   } else {
     lengthOrMatrix = nextNumber();
@@ -240,6 +288,7 @@ void commandMapKeys() {
   int cmdBase = nextNumber();
   if (cmdBase < 0) {
     Serial.println(F("Invalid command base"));
+    Serial.print(target); Serial.print(' '); Serial.print(cmdBase);
     return;
   }
 
@@ -259,7 +308,6 @@ void commandMapKeys() {
   Serial.print(F("Defined keymap: ")); Serial.print(slotCnt + 1); Serial.print(':');
   pos->printDef();
   Serial.println();
-  saveAll();
 }
 
 void commandDelMap() {
@@ -292,7 +340,6 @@ void commandDelMap() {
   Serial.print(F("Deleted: "));
   save.printDef();
   Serial.println();
-  saveAll();
 }
 
 void commandShowKeys() {
@@ -307,11 +354,11 @@ void commandShowKeys() {
 
 void KeySpec::printDef() {
   Serial.print(matrix ? 'm' : 's'); Serial.print(':');
-  Serial.print(x + 1); Serial.print(':'); Serial.print(y + 1); Serial.print(':');
+  Serial.print(y + 1); Serial.print(','); Serial.print(x + 1); Serial.print(':');
   if (matrix) {
-    int w = ((lenOrMatrix & 0x0f) + 1) - x;
-    int h = ((lenOrMatrix >> 4) + 1) - y;
-    Serial.print(w); Serial.print(','); Serial.print(h);
+    int w = ((lenOrMatrix & 0x0f) + 1);
+    int h = ((lenOrMatrix >> 4) + 1);
+    Serial.print(h); Serial.print(','); Serial.print(w);
   } else {
     Serial.print(lenOrMatrix);
   }
@@ -320,21 +367,45 @@ void KeySpec::printDef() {
 }
 
 void commandPress() {
-  int r = nextNumber();
-  if (r < 1 || r > inputRows) {
+  char *colon = strchr(inputPos, ':');
+  if (colon == NULL) {
+    Serial.println(F("Bad definition"));
+    return;
+  }
+  *colon = 0;
+  char *dot = strchr(inputPos, ',');
+  if (dot == NULL) {
+    Serial.print(F("Bad point"));
+    return;
+  }
+  *dot = 0;
+  int y = nextNumber();
+  inputPos = dot + 1;
+  int x = nextNumber();
+
+  if ((x < 1) || (x > inputColumns)) {
+    Serial.println(F("Bad column"));
+    return;
+  }
+  if ((y < 1) || (y > inputRows)) {
     Serial.println(F("Bad row"));
     return;
   }
-  int c = nextNumber();
-  if (c < 1 || c > inputRows) {
-    Serial.println(F("Bad col"));
-    return;
-  }
+  inputPos = colon + 1;
+  int lengthOrMatrix;
+  
+  x--;
+  y--;
+
   byte on = true;
   switch (*inputPos) {
     case '0': case '-': case 'n': case 'u': case 'o':
     on = false;
   }
-  pressKey(r - 1, c - 1, on);
+  if (debugKeyFn) {
+    Serial.print(F("Pressed: ")); Serial.print(y); Serial.print(','); Serial.print(x); Serial.print('='); Serial.println(on);  
+  }
+  
+  pressKey(x, y, on);
 }
 

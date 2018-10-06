@@ -39,7 +39,7 @@ Debouncer::Debouncer(byte aCount, byte* aState) : stateBytes(aCount), stableStat
 void Debouncer::debounce(byte inputStart8, const byte* raw, byte rawByteSize) {
   if (inputStart8 >= stateBytes) {
     if (debugDebouncer) {
-      Serial.println(F("*debounce error"));
+      Serial.print(F("*debounce error: st:")); Serial.print(inputStart8); Serial.print(F(" bytes: ")); Serial.println(stateBytes);
     }
     return; 
   }

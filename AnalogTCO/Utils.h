@@ -32,12 +32,20 @@ inline void selectDemuxLine(byte line) {
 #endif
 #else 
 inline void selectDemuxLine(byte line) {
+
+#ifdef FBO
   if (line < 8) {
     digitalWrite(DemuxAddr0, line & 0x01);
     digitalWrite(DemuxAddr1, line & 0x02);
     digitalWrite(DemuxAddr2, line & 0x04);
     digitalWrite(DemuxAddr3, 1);
   }
+#else 
+  digitalWrite(DemuxAddr0, line & 0x01);
+  digitalWrite(DemuxAddr1, line & 0x02);
+  digitalWrite(DemuxAddr2, line & 0x04);
+  digitalWrite(DemuxAddr3, line & 0x08);
+#endif
 }
 #endif
 
@@ -119,7 +127,6 @@ struct KeySpec {
     lenOrMatrix = w | (h << 4);
     target = t;
     commandBase = b;
-    Serial.print("Rectangle: "); Serial.println(lenOrMatrix, HEX);
   }
 
   void printDef();

@@ -168,7 +168,7 @@ void setup() {
 
 //  testCommunication();
 
-  Serial.print(F("Analog Control Panel, version ")); Serial.print(majorVersion); Serial.print('.'); Serial.println(minorVersion);
+  Serial.print(F("Analog S88 Display, version ")); Serial.print(majorVersion); Serial.print('.'); Serial.println(minorVersion);
   Serial.println(F("Copyright (c) 2018, belgarat@klfree.net; licensed under Apache License 2.0 "));
   Serial.println();
   printPrompt();

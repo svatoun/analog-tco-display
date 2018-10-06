@@ -33,7 +33,7 @@
  */
 
 const boolean debug485Frame = false;
-const boolean debug485Recv = false;
+const boolean debug485Recv = true;
 
 #include "RS485Frame.h"
 

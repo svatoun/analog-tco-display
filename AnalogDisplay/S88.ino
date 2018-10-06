@@ -251,7 +251,9 @@ byte s88ReadData() {
   if (debugS88Pins) {
     Serial.println(F("S88: received full byte"));
   }
-//  Serial.println(s88Received, BIN);
+  if (debugS88) {
+    Serial.println(s88Received, BIN); 
+  }
   // process the byte as a change
   s88Debounce.debounce(s88ModuleNumber, &s88Received, sizeof(s88Received));
 

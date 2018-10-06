@@ -1,7 +1,7 @@
 
 ///////////////////////// Configuration details for S88 //////////////////////////////////////
 
-const boolean debugS88 = false;
+const boolean debugS88 = true;
 const boolean debugS88Pins = false;
 const boolean testS88 = false;
 
@@ -306,6 +306,9 @@ byte s88ReadData() {
   }
   if (debugS88Pins) {
     Serial.println(F("S88: received full byte"));
+  }
+  if (debugS88) {
+    Serial.print(F("S88: got ")); Serial.println(s88Received, BIN);
   }
   // process the byte as a change
   s88Debounce.debounce(s88ModuleNumber, &s88Received, sizeof(s88Received));

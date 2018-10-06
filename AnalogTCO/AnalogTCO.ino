@@ -209,7 +209,8 @@ void shiftIORow() {
   
   displayOutputRow();
   processInputRow();
-  ioRowIndex = (ioRowIndex + 1) % 16;
+  ioRowIndex = (ioRowIndex + 1) % inputRows;
+//  ioRowIndex = 0;
 }
 
 const boolean testOnly = true;
@@ -224,10 +225,10 @@ void loop() {
   transmitFrames();
 
   updateTime();
-  processS88Bus();
+//  processS88Bus();
 
   updateTime();
-  flipFlashes();
+//  flipFlashes();
   processTerminal();
 }
 
