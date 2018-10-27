@@ -10,6 +10,8 @@ Bežné "analogově řízené" kolejiště využívá jednoduchého spínání, 
 
 **POZOR** jedná se o ovládání ANALOGOVÉHO kolejiště, u digitálního kolejiště pomocí _XPressNet_ je pro komunikaci s centrálou použitá sicestejná kabeláž ale **jiný, standardizovaný, protokol** ! Komunikace a možnosti tohoto "analogového TCO" v žádném případě nedosahuje robustnosti a šíře protokolu XpressNet nebo LocoNet.
 
+TCO se **konfiguruje** pomocí integrovaného USB portu v Arduinu, zapojeného do PC. 
+
 Více viz [Analogové TCO](https://github.com/svatoun/analog-tco-display/wiki/Analog-TCO)
 
 ## Zobrazení obsazení
