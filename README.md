@@ -3,7 +3,6 @@
 Projekt se skládá z 2 částí: Analogové TCO a Zobrazovač obsazení
 
 ## Analogové TCO
-Tlacitkove ovladani a zobrazovani obsazeni v pultu pro analogova kolejiste
 **TCO je ovladač ANALOGOVÉHO kolejiště do ovládacího pultu**, pracuje s tlačítky (spínači) nebo přepínači. Čte stav tlačítek, sleduje změny a pomocí sběrnice RS485 odesílá jednotlivým výkonným zařízením pod kolejištěm. Sběrnice nahrazuje samostatné spínací / povelové vodiče vedoucí z pultu k jednotlivým servům, přestavníkům apod. TCO si vystačí se 3 vodiči (U+, U- a GND) a dokáže po nich přenést velké libovolné množství povelů.
 
 Bežné "analogově řízené" kolejiště využívá jednoduchého spínání, tedy na každé zařízení (přestavník, lampa, světlo návěstidla atd) padne jeden vodič. Jejich množství může lehce vyčerpat vodiče v kabelu propojující ovládací panel s kolejištěm.
