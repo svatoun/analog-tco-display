@@ -165,6 +165,7 @@ void setup() {
   registerLineCommand("SAV", &commandSave);
   registerLineCommand("FTR", &commandFeature);
   registerLineCommand("INF", &commandInfo);
+  registerLineCommand("XDR", &commandXbusAddress);
 
 //  testCommunication();
 
@@ -325,5 +326,25 @@ void commandFeature() {
 void commandInfo() {
   Serial.println(F("Output state:"));
   printMatrixOutput();
+}
+
+void dumpXbusAddress() {
+  Serial.print(F("XDR:")); Serial.println(eeData.busId);
+}
+void commandXbusAddress() {
+  int a = nextNumber();
+  if (a == -2) {
+    dumpXbusAddress();
+    return;
+  }
+  if (a == 1) {
+    Serial.println(F("Address 1 is reserved."));
+    return;
+  }
+  if (a < 2) {
+    Serial.println(F("Bad addr"));
+    return;
+  }
+  eeData.busId = a;
 }
 
