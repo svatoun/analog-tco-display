@@ -11,7 +11,7 @@ Bežné "analogově řízené" kolejiště využívá jednoduchého spínání, 
 
 TCO se **konfiguruje** pomocí integrovaného USB portu v Arduinu, zapojeného do PC. 
 
-Více viz [Analogové TCO](https://github.com/svatoun/analog-tco-display/wiki/Analog-TCO)
+Více viz [Analogové TCO](http://cs.ttodbocna.wikia.com/wiki/Analog_TCO)
 
 ## Zobrazení obsazení
 Skládá se z několika částí:
@@ -22,3 +22,6 @@ Umožňuje přenášet až 128 detekovaných úseků a zobrazovat jejich stav na
 např. jazýčková relé, optické senzory atd. 
 
 Podrobnější popis bude doplněn.
+
+## Celková "architektura"
+Jak spolu spolupracují TCO, Display, proudove detektory atd atd je (vysvětleno ve Wiki)[http://cs.ttodbocna.wikia.com/wiki/Architektura_Analog]
