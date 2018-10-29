@@ -54,9 +54,7 @@ void setupDemuxPorts() {
  */
 void setupPorts() {
   setupRS485Ports();
-  setupS88Ports();
   setupInputPorts();
-  setupOutputPorts();
 
   setupDemuxPorts();
 }
@@ -153,8 +151,6 @@ void setup() {
   
   resetBusMaster();
   resetInput();
-  resetOutput();
-  resetS88();
   checkInitEEPROM();
   loadAll();
   initTerminal();
@@ -163,9 +159,7 @@ void setup() {
   registerLineCommand("DMP", &commandDumpAll);
   registerLineCommand("CLR", &commandClear);
   registerLineCommand("SAV", &commandSave);
-  registerLineCommand("FTR", &commandFeature);
-  registerLineCommand("INF", &commandInfo);
-  registerLineCommand("XDR", &commandXbusAddress);
+  registerLineCommand("XDR", &commandSbusAddress);
 
 //  testCommunication();
 
@@ -178,7 +172,6 @@ void setup() {
 void resetAll() {
   eeData = EEData();
   resetInput();
-  resetOutput();
 }
 
 void saveAll() {
@@ -205,10 +198,8 @@ void shiftIORow() {
     return;
   }
   
-  prepareOutputRow();         
   selectDemuxLine(ioRowIndex);
   
-  displayOutputRow();
   processInputRow();
   ioRowIndex = (ioRowIndex + 1) % inputRows;
 //  ioRowIndex = 0;
@@ -218,7 +209,6 @@ const boolean testOnly = true;
 
 extern volatile long  intCount;
 void loop() {
-  processVoltage();
   updateTime();
     
   shiftIORow();
@@ -272,10 +262,7 @@ void commandSave() {
 }
 
 void commandDumpAll() {
-  commandFlashDump();
   commandShowKeys();
-  dumpTrackSensitivity();
-  printFeatures();
 }
 
 void printFeatures() {
@@ -323,18 +310,13 @@ void commandFeature() {
   }
 }
 
-void commandInfo() {
-  Serial.println(F("Output state:"));
-  printMatrixOutput();
-}
-
-void dumpXbusAddress() {
+void dumpSbusAddress() {
   Serial.print(F("XDR:")); Serial.println(eeData.busId);
 }
-void commandXbusAddress() {
+void commandSbusAddress() {
   int a = nextNumber();
   if (a == -2) {
-    dumpXbusAddress();
+    dumpSbusAddress();
     return;
   }
   if (a < 1) {
