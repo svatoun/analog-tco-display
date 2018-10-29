@@ -159,7 +159,7 @@ void setup() {
   loadAll();
   initTerminal();
 
-  registerLineCommand("EDMP", &commandDumpEEProm);
+  registerLineCommand("EED", &commandDumpEEProm);
   registerLineCommand("DMP", &commandDumpAll);
   registerLineCommand("CLR", &commandClear);
   registerLineCommand("SAV", &commandSave);
@@ -337,11 +337,7 @@ void commandXbusAddress() {
     dumpXbusAddress();
     return;
   }
-  if (a == 1) {
-    Serial.println(F("Address 1 is reserved."));
-    return;
-  }
-  if (a < 2) {
+  if (a < 1) {
     Serial.println(F("Bad addr"));
     return;
   }

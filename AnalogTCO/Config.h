@@ -86,7 +86,7 @@ const int DemuxAddr1 = 10;
 const int DemuxAddr0 = 11;
 
 
-const byte inputRows = 8;   // max 16
+const byte inputRows = 16;
 const byte inputColumns = 8;
 
 static_assert(inputRows == 8 || inputRows == 16, "Either 8 or 16 rows must be selected");

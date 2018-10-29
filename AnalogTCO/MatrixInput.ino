@@ -1,6 +1,6 @@
 const boolean debugKeyInput = false;
 const boolean debugKeyFn = true;
-const boolean debugKeySearch = true;
+const boolean debugKeySearch = false;
 
 static_assert(inputColumns % 8 == 0, "Number of output columns must be a multiply of 8");
 static_assert((sizeof(unsigned int) * 8) >= inputColumns, "Max 16 columns is supported");
