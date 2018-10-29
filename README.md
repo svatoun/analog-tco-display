@@ -24,4 +24,4 @@ např. jazýčková relé, optické senzory atd.
 Podrobnější popis bude doplněn.
 
 ## Celková "architektura"
-Jak spolu spolupracují TCO, Display, proudove detektory atd atd je (vysvětleno ve Wiki)[http://cs.ttodbocna.wikia.com/wiki/Architektura_Analog]
+Jak spolu spolupracují TCO, Display, proudove detektory atd atd je [vysvětleno ve Wiki](http://cs.ttodbocna.wikia.com/wiki/Architektura_Analog)
